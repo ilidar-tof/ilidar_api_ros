@@ -1,8 +1,9 @@
 /**
  * @file ilidar-ros.cpp
  * @brief ilidar ros example source file
- * @author JSon (json@hybo.co)
- * @data 2023-12-28
+ * @author JSon (json@hybo.co) JeongIngyo (jungingyo@hybo.co)
+ * @version 1.3.1
+ * @date 2025-01-27
  */
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -29,54 +30,47 @@
 //	SOFTWARE.																		//
 //////////////////////////////////////////////////////////////////////////////////////
 
-// Include ROS SYSTEM
 #include <ros/ros.h>
 
-// Include file IO
-#include <iostream>
+#include "src/ilidar.hpp"
 
-// Include PCL for ROS
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/common/transforms.h>
-
-// Include OpenCV
-#include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.h>
-
-// Include ROS TOPICS
-#include <sensor_msgs/PointCloud2.h>
-#include <image_transport/image_transport.h>
-
-// Include General libraries
 #include <thread>
 #include <stdio.h>
 #include <chrono>
-#include <condition_variable>	// Data synchronization
-#include <mutex>				// Data synchronization
-#include <queue>				// Data synchronization
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <iostream>
 
-// Include ilidar library
-#include "src/ilidar.hpp"
+#include <opencv2/opencv.hpp>
+#include <cv_bridge/cv_bridge.h>
 
-// Data place holder
-static cv::Mat					lidar_img_data[iTFS::max_device];
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/PointCloud2.h>
+
+// cv::Mat definition for global data holder
+static cv::Mat lidar_img_data[iTFS::max_device];
 
 // Synchronization variables
 static std::condition_variable	lidar_cv;
 static std::mutex				lidar_cv_mutex;
 static std::queue<int>			lidar_q;
 
-// Basic lidar data handler function
-static void lidar_data_handler(iTFS::device_t *device) {
-	// Print message example
-	// printf("[MESSAGE] iTFS::LiDAR image  | D# %d  M %d  F# %2d  %d.%d.%d.%d:%d\n",
-	// 	device->idx, device->data.mode, device->data.frame,
-	// 	device->ip[0], device->ip[1], device->ip[2], device->ip[3], device->port);
+// Lidar data handler function for OpenCV viewer
+static void lidar_data_handler(iTFS::device_t* device) {
+	// Print message (Skipped)
+	//printf("[MESSAGE] iTFS::LiDAR image  | D# %d  M %d  F# %2d  %d.%d.%d.%d:%d\n",
+	//	device->idx, device->data.mode, device->data.frame,
+	//	device->ip[0], device->ip[1], device->ip[2], device->ip[3], device->port);
 
-	// Deep-copy depth image data
-	memcpy((void *)lidar_img_data[device->idx].data, (const void *)device->data.img, sizeof(device->data.img));
+	// Deep-copy the lidar data to cv::Mat
+	memcpy((void *)lidar_img_data[device->idx].data,
+		(const void *)device->data.img,
+		sizeof(device->data.img));
 
 	// Notify the reception to the main thread
 	int idx = device->idx;
@@ -87,62 +81,137 @@ static void lidar_data_handler(iTFS::device_t *device) {
 
 // Basic lidar status packet handler function
 static void status_packet_handler(iTFS::device_t* device) {
-	// Print message example
-	// printf("[MESSAGE] iTFS::LiDAR status | D# %d  M %d  F# %2d  T %.3f  %d.%d.%d.%d:%d\n",
-	// 	device->idx, device->status.capture_mode, device->status.capture_frame, iTFS::packet::get_sensor_time(&device->status),
+	// Print message (Skipped)
+	// printf("[MESSAGE] iTFS::LiDAR status | D#%d mode %d frame %2d time %lld us temp %.2f from %3d.%3d.%3d.%3d:%5d\n",
+	// 	device->idx, device->status.capture_mode, device->status.capture_frame, get_sensor_time_in_us(&device->status), (float)(device->status.sensor_temp_core) * 0.01f,
 	// 	device->ip[0], device->ip[1], device->ip[2], device->ip[3], device->port);
 }
 
 // Basic lidar info packet handler function
 static void info_packet_handler(iTFS::device_t* device) {
-	// Print message example
-	printf("[MESSAGE] iTFS::LiDAR info   | D# %d  lock %d\n",
-		device->idx, device->info.lock);
+	// Check info packet version
+	if (device->info.sensor_sn != 0) {
+		// Print message
+		printf("[MESSAGE] iTFS::LiDAR info packet was received.\n");
+		printf("[MESSAGE] iTFS::LiDAR info   | D# %d  lock %d\n",
+			device->idx, device->info.lock);
 
-	printf("\tSN #%d mode %d, rows %d, period %d\n",
-		device->info.sensor_sn,
-		device->info.capture_mode,
-		device->info.capture_row,
-		device->info.capture_period);
+		printf("\tSN #%d mode %d, rows %d, period %d\n",
+			device->info.sensor_sn,
+			device->info.capture_mode,
+			device->info.capture_row,
+			device->info.capture_period);
 
-	printf("\tshutter [ %d, %d, %d, %d, %d ]\n",
-		device->info.capture_shutter[0],
-		device->info.capture_shutter[1],
-		device->info.capture_shutter[2],
-		device->info.capture_shutter[3],
-		device->info.capture_shutter[4]);
+		printf("\tshutter [ %d, %d, %d, %d, %d ]\n",
+			device->info.capture_shutter[0],
+			device->info.capture_shutter[1],
+			device->info.capture_shutter[2],
+			device->info.capture_shutter[3],
+			device->info.capture_shutter[4]);
 
-	printf("\tlimit [ %d, %d ]\n",
-		device->info.capture_limit[0],
-		device->info.capture_limit[1]);
+		printf("\tlimit [ %d, %d ]\n",
+			device->info.capture_limit[0],
+			device->info.capture_limit[1]);
 
-	printf("\tip   %d.%d.%d.%d\n",
-		device->info.data_sensor_ip[0],
-		device->info.data_sensor_ip[1],
-		device->info.data_sensor_ip[2],
-		device->info.data_sensor_ip[3]);
+		printf("\tip   %d.%d.%d.%d\n",
+			device->info.data_sensor_ip[0],
+			device->info.data_sensor_ip[1],
+			device->info.data_sensor_ip[2],
+			device->info.data_sensor_ip[3]);
 
-	printf("\tdest %d.%d.%d.%d:%d\n",
-		device->info.data_dest_ip[0],
-		device->info.data_dest_ip[1],
-		device->info.data_dest_ip[2],
-		device->info.data_dest_ip[3],
-		device->info.data_port);
+		printf("\tdest %d.%d.%d.%d:%d\n",
+			device->info.data_dest_ip[0],
+			device->info.data_dest_ip[1],
+			device->info.data_dest_ip[2],
+			device->info.data_dest_ip[3],
+			device->info.data_port);
 
-	printf("\tsync %d, syncBase %d autoReboot %d, autoRebootTick %d\n",
-		device->info.sync,
-		device->info.sync_delay,
-		device->info.arb,
-		device->info.arb_timeout);
+		printf("\tsync %d, syncBase %d autoReboot %d, autoRebootTick %d\n",
+			device->info.sync,
+			device->info.sync_delay,
+			device->info.arb,
+			device->info.arb_timeout);
 
-	printf("\tFW version: V%d.%d.%d - ",
-		device->info.sensor_fw_ver[2],
-		device->info.sensor_fw_ver[1],
-		device->info.sensor_fw_ver[0]);
-	printf((const char*)device->info.sensor_fw_time);
-	printf(" ");
-	printf((const char*)device->info.sensor_fw_date);
-	printf("\n");
+		printf("\tFW version: V%d.%d.%d - ",
+			device->info.sensor_fw_ver[2],
+			device->info.sensor_fw_ver[1],
+			device->info.sensor_fw_ver[0]);
+		printf("%s", (const char*)device->info.sensor_fw_time);
+		printf(" ");
+		printf("%s", (const char*)device->info.sensor_fw_date);
+		printf("\n");
+        fflush(stdout);
+	}
+	else if (device->info_v2.sensor_sn != 0) {
+		printf("[MESSAGE] iTFS::LiDAR info_v2 packet was received.\n");
+		printf("[MESSAGE] iTFS::LiDAR info_v2| D# %d  lock %d\n",
+			device->idx, device->info_v2.lock);
+
+		printf("\tSN #%d mode %d, rows %d, period %d\n",
+			device->info_v2.sensor_sn,
+			device->info_v2.capture_mode,
+			device->info_v2.capture_row,
+			device->info_v2.capture_period_us);
+
+		printf("\tshutter [ %d, %d, %d, %d, %d ]\n",
+			device->info_v2.capture_shutter[0],
+			device->info_v2.capture_shutter[1],
+			device->info_v2.capture_shutter[2],
+			device->info_v2.capture_shutter[3],
+			device->info_v2.capture_shutter[4]);
+
+		printf("\tlimit [ %d, %d ]\n",
+			device->info_v2.capture_limit[0],
+			device->info_v2.capture_limit[1]);
+
+		printf("\tip   %d.%d.%d.%d\n",
+			device->info_v2.data_sensor_ip[0],
+			device->info_v2.data_sensor_ip[1],
+			device->info_v2.data_sensor_ip[2],
+			device->info_v2.data_sensor_ip[3]);
+
+		printf("\tdest %d.%d.%d.%d:%d\n",
+			device->info_v2.data_dest_ip[0],
+			device->info_v2.data_dest_ip[1],
+			device->info_v2.data_dest_ip[2],
+			device->info_v2.data_dest_ip[3],
+			device->info_v2.data_port);
+
+		printf("\tsync %d, syncBase %d autoReboot %d, autoRebootTick %d\n",
+			device->info_v2.sync,
+			device->info_v2.sync_trig_delay_us,
+			device->info_v2.arb,
+			device->info_v2.arb_timeout);
+
+		printf("\tFW version: V%d.%d.%d - ",
+			device->info_v2.sensor_fw_ver[2],
+			device->info_v2.sensor_fw_ver[1],
+			device->info_v2.sensor_fw_ver[0]);
+		printf("%s", (const char*)device->info_v2.sensor_fw_time);
+		printf(" ");
+		printf("%s", (const char*)device->info_v2.sensor_fw_date);
+		printf("\n");
+
+		printf("\tFW0: V%d.%d.%d,  FW1: V%d.%d.%d,  FW2: V%d.%d.%d\n",
+			device->info_v2.sensor_fw0_ver[2],
+			device->info_v2.sensor_fw0_ver[1],
+			device->info_v2.sensor_fw0_ver[0],
+			device->info_v2.sensor_fw1_ver[2],
+			device->info_v2.sensor_fw1_ver[1],
+			device->info_v2.sensor_fw1_ver[0],
+			device->info_v2.sensor_fw2_ver[2],
+			device->info_v2.sensor_fw2_ver[1],
+			device->info_v2.sensor_fw2_ver[0]);
+
+		if (device->info_v2.sensor_boot_mode == 0) {
+			printf("\tSENSOR IS IN SAFE-MODE\n");
+		}
+        fflush(stdout);
+	}
+	else {
+		printf("[MESSAGE] iTFS::LiDAR info   | INVALID PACKET\n");
+        fflush(stdout);
+	}
 }
 
 // Read transformation vectors
@@ -156,12 +225,41 @@ static void read_mapping_file(std::string file) {
 }
 
 // Get the depth vector of the pixel
-#define OFFSET_X ((int)0)
-#define OFFSET_Y ((int)0)
 static inline pcl::PointXYZ get_direction_vector(int u, int v) {
-    int u_idx = u + OFFSET_X;
-    int v_idx = v + OFFSET_Y + (240 - iTFS::max_row) / 2;
+    int u_idx = u ;
+    int v_idx = v + (240 - iTFS::max_row) / 2;
     return pcl::PointXYZ(direction[v_idx][u_idx][0], direction[v_idx][u_idx][1], direction[v_idx][u_idx][2]);
+}
+
+// IP conversion
+static bool convert_ip(const std::string &ip, uint8_t array[4]) {
+	std::istringstream ss(ip);
+	std::string segment;
+	int index = 0;
+
+	while (std::getline(ss, segment, '.'))
+	{
+		// Check if we have more than 4 segments
+		if (index >= 4)
+		{
+			return false;
+		}
+
+		// Convert the segment to an integer
+		int value = std::stoi(segment);
+
+		// Check if the value is in the valid range for an IP byte
+		if (value < 0 || value > 255)
+		{
+			return false;
+		}
+
+		// Assign the value to the array
+		array[index++] = static_cast<uint8_t>(value);
+	}
+
+	// Check if we parsed exactly 4 segments
+	return index == 4;
 }
 
 // Helloworld example starts here
@@ -197,12 +295,19 @@ int main(int argc, char* argv[]) {
 
     // Depth cut
     int		depth_min, depth_max;
-    nh_private.param("depth_min", depth_min, 500);
-    nh_private.param("depth_max", depth_max, 12000);
+    nh_private.param("point_depth_min", depth_min, 500);
+    nh_private.param("point_depth_max", depth_max, 12000);
+	
+    std::string broadcast_ip;
+    std::string listening_ip; 
+    int listening_port;
+    nh_private.param("broadcast_ip", broadcast_ip, std::string("192.168.5.255"));
+    nh_private.param("listening_ip", listening_ip, std::string("0.0.0.0"));
+    nh_private.param("listening_port", listening_port, (int)iTFS::user_data_port);
 
     // Calibration file
     std::string mapping_file;
-    nh_private.param("mapping_file", mapping_file, std::string("/home/intrinsic.dat"));
+    nh_private.param("mapping_file", mapping_file, std::string("../dat/iTFS-110.dat"));
 
     // Frames and topics
     std::string frame_id;
@@ -248,6 +353,16 @@ int main(int argc, char* argv[]) {
 	// Read mapping file
 	read_mapping_file(mapping_file);
 
+	uint8_t broadcast_ip_arr[4], listening_ip_arr[4];
+	if (!convert_ip(broadcast_ip, broadcast_ip_arr)) {
+		ROS_FATAL("TFS::LiDAR invalid brodcast ip: %s\n", broadcast_ip.c_str());
+		return (-1);
+	}
+	if (!convert_ip(listening_ip, listening_ip_arr)) {
+		ROS_FATAL("iTFS::LiDAR invalid listening ip: %s\n", listening_ip.c_str());
+		return (-1);
+	}
+
 	// Create iTFS LiDAR class
 	iTFS::LiDAR* lidar;
 	lidar = new iTFS::LiDAR(lidar_data_handler,
@@ -256,7 +371,8 @@ int main(int argc, char* argv[]) {
 
 	// Check the sensor driver is ready
 	while (lidar->Ready() != true) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
-	printf("[MESSAGE] iTFS::LiDAR is ready.\n");
+
+	ROS_INFO("iTFS::LiDAR is ready.");
 
 	/* Main loop starts here */
 	int recv_device_idx = 0;
@@ -270,7 +386,7 @@ int main(int argc, char* argv[]) {
 		// Check the main loop underrun
 		if (!lidar_q.empty()) {
 			/* The main loop is slower than data reception handler */
-			printf("[WARNING] iTFS::LiDAR The main loop seems to be slower than the LiDAR data reception handler.\n");
+			ROS_WARN("iTFS::LiDAR The main loop seems to be slower than the LiDAR data reception handler.");
 
 			// Flush the queue
 			while (!lidar_q.empty()) { recv_device_idx = lidar_q.front(); lidar_q.pop(); }
@@ -289,7 +405,7 @@ int main(int argc, char* argv[]) {
 				cv::Sobel(cv_depth_image, dx, -1, 1, 0);
 				cv::Sobel(cv_depth_image, dy, -1, 0, 1);
 				mask = cv::abs(dx) + cv::abs(dy);
-				cv::threshold(mask, mask, 6 * edge_threshold, 1, cv::THRESH_BINARY_INV);
+				cv::threshold(mask, mask, 16 * edge_threshold, 1, cv::THRESH_BINARY_INV);   // Sobel filtering with normalization by 16
 				cv_depth_image = cv_depth_image.mul(mask);
 			}
 
@@ -348,10 +464,19 @@ int main(int argc, char* argv[]) {
 				pub_2D_depth.publish(ptr_depth_image);
 				pub_2D_intensity.publish(ptr_intensity_image);
 			}
+
+			ROS_INFO(
+				"iTFS:LiDAR frame #%02d  time %.3f sec",
+				lidar->device[recv_device_idx].status.capture_frame,
+				get_sensor_time(&lidar->device[recv_device_idx].status));
+		}
+		else {
+			ROS_INFO(
+				"iTFS:LiDAR grayscale image was received! Check the sensor configuration.");
 		}
 	}
 
 	// Stop and delete iTFS LiDAR class
 	delete lidar;
-	printf("[MESSAGE] iTFS::LiDAR has been deleted.\n");
+	ROS_INFO("iTFS::LiDAR has been deleted.\n");
 }

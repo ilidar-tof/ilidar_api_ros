@@ -1,10 +1,4 @@
 <launch>
-      <!-- rviz definition -->
-      <node name="rviz"
-            pkg="rviz"
-            type="rviz"
-            args="-d $(find ilidar)/launch/viewer.rviz"/>
-
       <!-- ilidar node definition -->
       <node name="ilidarNode"
             pkg="ilidar"
@@ -19,15 +13,10 @@
             <param name="depth_cmax"      type="int"        value="10000"                             />
             <param name="intensity_cmax"  type="int"        value="16384"                             />
 
-            <param name="point_depth_min" type="int"        value="500"                               />
-            <param name="point_depth_max" type="int"        value="20000"                             />
+            <param name="depth_min"       type="int"        value="500"                               />
+            <param name="depth_max"       type="int"        value="20000"                             />
 
-            <param name="broadcast_ip"    type="string"     value="192.168.5.255"                     />
-            <param name="listening_ip"    type="string"     value="0.0.0.0"                           />
-            <param name="listening_port"  type="int"        value="7256"                              />
-
-            <param name="mapping_file"    type="string"     value="$(find ilidar)/dat/iTFS-110.dat"   />
-            <!-- <param name="mapping_file"    type="string"     value="$(find ilidar)/dat/iTFS-80.dat"    /> for iTFS-80 default -->
+            <param name="mapping_file"    type="string"     value="$(find ilidar)/src/iTFS-110.dat"   />
 
             <param name="frame_id"        type="string"     value="local"                             />
             <param name="gray_name"       type="string"     value="/ilidar/gray"                      />

@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(ilidar)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-#add_definitions(-std=c++11) # Use C++11
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})

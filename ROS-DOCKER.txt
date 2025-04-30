@@ -132,6 +132,25 @@ $ exit
 
 --------------------------------------------------------------------------------
 
+[3-6] Clone and run ros-jazzy
+1. Clone and run
+$ sudo docker run -it \
+    --name="ros-jazzy" \
+    --env="DISPLAY" \
+    --env="QT_X11_NO_MITSHM=1" \
+    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    -p 7256:7256/udp \
+    -p 7257:7257/udp \
+    osrf/ros:jazzy-desktop-full
+    
+2. Check ros version (on the docker image)
+$ roscore
+
+3. Exit docker image
+$ exit
+
+--------------------------------------------------------------------------------
+
 [3-6] Check the docker images:
 $ sudo docker ps -a
 
@@ -142,6 +161,7 @@ XXXXXXXXXXXX   osrf/ros:kinetic-desktop-full   "/ros_entrypoint.sh …"   14 min
 XXXXXXXXXXXX   osrf/ros:noetic-desktop-full    "/ros_entrypoint.sh …"   12 minutes ago    Exited (0) 12 minutes ago              ros-noetic
 XXXXXXXXXXXX   osrf/ros:humble-desktop-full    "/ros_entrypoint.sh …"   10 minutes ago    Exited (0) 10 minutes ago              ros-humble
 XXXXXXXXXXXX   osrf/ros:foxy-desktop           "/ros_entrypoint.sh …"   5 minutes ago     Exited (0) 3 minutes ago               ros-foxy
+XXXXXXXXXXXX   osrf/ros:jazzy-desktop-full     "/ros_entrypoint.sh …"   1 minutes ago     Exited (0) 1 minutes ago               ros-jazzy-full
 
 ================================================================================
 
@@ -150,34 +170,57 @@ XXXXXXXXXXXX   osrf/ros:foxy-desktop           "/ros_entrypoint.sh …"   5 minu
 $ sudo xhost +local:root
 
 2. Copy iLiDAR ROS package to the docker image:
-$ sudo docker cp /home/<USER_NAME>/Desktop/ilidar-ros <CONTAINER_NAME>:/home/ilidar-ros
+$ (sudo) docker cp /<PATH_TO_ORIGINAL>/ilidar_ros_cpp <CONTAINER_NAME>:/<PATH_TO_YOUR>/ilidar_ros_cpp
 
 3. Start the docker image:
-$ sudo docker start -i <CONTAINER_NAME>
+$ (sudo) docker start -i <CONTAINER_NAME>
 
 4. Go to the folder
-$ cd /home/ilidar-ros
+# cd /path/to/your/ilidar_ros_cpp
 
-5. Build the iLiDAR ROS package
-$ catkin_make
+5. Build and run the package on ROS
+# source /opt/ros/<YOUR_DISTRO>/setup.bash
 
-6. Configure
-$ source devel/setup.bash
+# cd ilidar_ros
+# catkin_make
 
-7. Run the viewer example
-$ roslaunch ilidar viewer.launch
+# source devel/setup.bash
+# roslaunch ilidar viewer.launch
+
+6. (or) Build and run the package on ROS2 Humble/Foxy
+# source /opt/ros/<YOUR_DISTRO>/setup.bash
+
+# cd ilidar_ros2
+# colcon build
+
+# source install/setup.bash
+# ros2 launch ilidar viewer.py
+
+7. (or) Build and run the package on ROS2 Jazzy
+
+open "/ilidar_ros2/ilidar_ros2.cpp" with the text editor. 
+Find "#include <cv_bridge/cv_bridge.h>" and replace it with "#include <cv_bridge/cv_bridge.hpp>".
+Save changes. Then, do it the same way as other ROS2.
+
+# source /opt/ros/<YOUR_DISTRO>/setup.bash
+
+# cd ilidar_ros2
+# colcon build
+
+# source install/setup.bash
+# ros2 launch ilidar viewer.py
+
+8. Exit the docker container
+# exit
 
 ================================================================================
 
 [5-1] Tested ROS distiribitons
-1. ROS kinetic	1.12.17 (osrf/ros:kinetic-desktop-full)
-2. ROS melodic	1.14.13 (osrf/ros:melodic-desktop-full)
-3. ROS noetic	1.16.0 (noetic-desktop-full)
-
---------------------------------------------------------------------------------
-
-[5-2] Testing ROS distiribitons (To be released soon)
-4. ROS foxy	? (osrf/ros:foxy-desktop)
-5. ROS humble	? (osrf/ros:humble-desktop-full)
+1. ROS kinetic	(osrf/ros:kinetic-desktop-full)
+2. ROS melodic	(osrf/ros:melodic-desktop-full)
+3. ROS noetic	(noetic-desktop-full)
+4. ROS foxy	(osrf/ros:foxy-desktop)
+5. ROS humble	(osrf/ros:humble-desktop-full)
+6. ROS jazzy	(osrf/ros:jazzy-desktop-full)
 
 
