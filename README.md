@@ -1,3 +1,18 @@
+# Legacy Notice
+
+> [!WARNING]
+> This repository is now in **Legacy Maintenance Mode**.
+>
+> It is no longer under active development.
+> Only critical bug fixes may be provided if required.
+>
+> **Please use the latest repositories instead:**
+>
+> - **ROS Driver**: https://github.com/ilidar-tof/ilidar-ros
+>
+> You can also find all actively maintained repositories on the organization page:
+> https://github.com/ilidar-tof
+
 # iLidar ROS Package
 Ready to Use: This ROS1 package can be used to integrate our sensor into your application based on ROS1 environment. 
 
